@@ -1,33 +1,51 @@
-import { useAuth } from "@/_core/hooks/useAuth";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
-import { Streamdown } from 'streamdown';
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { trpc } from "@/lib/trpc";
 
-/**
- * All content in this page are only for example, replace with your own feature implementation
- * When building pages, remember your instructions in Frontend Workflow, Frontend Best Practices, Design Guide and Common Pitfalls
- */
+const examples = {
+  "Quiet study place": "Find me a quiet place to study near Anna Nagar, Chennai, open now, under ₹300, with Wi-Fi and charging points.",
+  "Accessible pharmacy": "Find an accessible pharmacy near Anna Nagar, Chennai, open now.",
+  "Affordable food": "Find affordable food near Anna Nagar, Chennai, open now.",
+  "Disruption-aware plan": "Find a local place near Anna Nagar, Chennai and check current closures or safety disruptions.",
+};
+
 export default function Home() {
-  // The useAuth hook provides authentication state.
-  // To implement login/logout, call logout(), or start login from an event
-  // handler: onClick={() => startLogin()} (imported from "@/const"). Never call
-  // startLogin() during render (no href={startLogin()}) — it mints a one-time
-  // nonce cookie and must run only at the moment of navigation.
-  let { user, loading, error, isAuthenticated, logout } = useAuth();
+  const [text, setText] = useState(examples["Quiet study place"]);
+  const [location, setLocation] = useState("Anna Nagar, Chennai");
+  const [budget, setBudget] = useState("300");
+  const [mustHave, setMustHave] = useState("Wi-Fi, charging points");
+  const [accessibility, setAccessibility] = useState("");
+  const [openNow, setOpenNow] = useState(true);
+  const [currentCheck, setCurrentCheck] = useState(false);
+  const [privacyMode, setPrivacyMode] = useState(true);
+  const mutation = trpc.nammaNav.recommend.useMutation();
+  const result = mutation.data as any;
 
-  // If theme is switchable in App.tsx, we can implement theme toggling like this:
-  // const { theme, toggleTheme } = useTheme();
+  const runSearch = () => mutation.mutate({
+    text,
+    broadLocation: location,
+    budget: budget ? Number(budget) : undefined,
+    mustHave: mustHave.split(",").map((item) => item.trim()).filter(Boolean),
+    accessibility: accessibility.split(",").map((item) => item.trim()).filter(Boolean),
+    openNow,
+    currentCheck,
+    privacyMode,
+  });
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <main>
-        {/* Example: lucide-react for icons */}
-        <Loader2 className="animate-spin" />
-        Example Page
-        {/* Example: Streamdown for markdown rendering */}
-        <Streamdown>Any **markdown** content</Streamdown>
-        <Button variant="default">Example Button</Button>
-      </main>
-    </div>
+    <main className="min-h-screen bg-[#f5f7f3] text-[#16211b]">
+      <header className="border-b border-[#d8e1d8] bg-[#f5f7f3]/95"><div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5"><div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center rounded-2xl bg-[#133b2d] text-lg text-white">N</div><div><p className="font-semibold tracking-tight">NammaNav AI</p><p className="text-xs text-[#607066]">Evidence-backed local decisions</p></div></div><div className="rounded-full border border-[#c5d5c8] bg-white px-4 py-2 text-xs font-medium text-[#25664a]">{result?.mode === "live" ? "LIVE PROVIDER" : "MOCK DEMO · SAFE MODE"}</div></div></header>
+      <div className="mx-auto grid max-w-7xl gap-8 px-6 py-10 lg:grid-cols-[.88fr_1.12fr]">
+        <section><p className="mb-4 text-sm font-semibold uppercase tracking-[.22em] text-[#2f805c]">Local action planner</p><h1 className="max-w-xl text-5xl font-semibold leading-[1.04] tracking-[-.055em] text-[#14382b]">Evidence-based local decisions, not just search results.</h1><p className="mt-5 max-w-xl text-lg leading-8 text-[#607066]">Tell NammaNav what you are trying to do. We plan focused searches, check important claims, remove unnecessary private details, and show why a place is worth your time.</p><div className="mt-8 grid grid-cols-2 gap-3">{Object.entries(examples).map(([label, value]) => <button key={label} onClick={() => setText(value)} className="rounded-2xl border border-[#d8e1d8] bg-white px-4 py-4 text-left text-sm font-medium transition hover:-translate-y-0.5 hover:border-[#7dab8b] focus:outline-none focus:ring-2 focus:ring-[#2f805c]"><span className="mb-1 block text-[#2f805c]">↗</span>{label}</button>)}</div><div className="mt-8 rounded-3xl border border-[#d8e1d8] bg-[#eaf2e9] p-5"><p className="text-sm font-semibold text-[#24583f]">Privacy by design</p><p className="mt-2 text-sm leading-6 text-[#527060]">Privacy mode keeps the request on broad, useful context. Direct identifiers and raw request storage are not part of this public demo.</p></div></section>
+        <section className="rounded-3xl border border-[#d8e1d8] bg-white p-6 shadow-[0_18px_60px_rgba(31,61,43,.08)]"><div className="mb-5 flex items-start justify-between"><div><h2 className="text-xl font-semibold text-[#173c2c]">What are you trying to do?</h2><p className="mt-1 text-sm text-[#718078]">Start with a goal, then add the constraints that matter.</p></div><span className="rounded-full bg-[#eff6ef] px-3 py-1 text-xs font-medium text-[#2f805c]">Phase 6</span></div><div className="space-y-5"><div><Label htmlFor="request">Natural-language request</Label><Textarea id="request" value={text} onChange={(event) => setText(event.target.value)} className="mt-2 min-h-28 border-[#d8e1d8]" /></div><div className="grid gap-4 sm:grid-cols-2"><div><Label htmlFor="location">Broad location</Label><Input id="location" value={location} onChange={(event) => setLocation(event.target.value)} className="mt-2 border-[#d8e1d8]" /></div><div><Label htmlFor="budget">Budget (₹)</Label><Input id="budget" inputMode="decimal" value={budget} onChange={(event) => setBudget(event.target.value)} className="mt-2 border-[#d8e1d8]" /></div></div><div className="grid gap-4 sm:grid-cols-2"><div><Label htmlFor="features">Must-have features</Label><Input id="features" value={mustHave} onChange={(event) => setMustHave(event.target.value)} className="mt-2 border-[#d8e1d8]" placeholder="Wi-Fi, charging" /></div><div><Label htmlFor="accessibility">Accessibility preferences</Label><Input id="accessibility" value={accessibility} onChange={(event) => setAccessibility(event.target.value)} className="mt-2 border-[#d8e1d8]" placeholder="Step-free entrance" /></div></div><div className="grid gap-3 sm:grid-cols-3"><label className="flex items-center gap-2 text-sm"><Checkbox checked={openNow} onCheckedChange={(value) => setOpenNow(value === true)} /> Open now</label><label className="flex items-center gap-2 text-sm"><Checkbox checked={currentCheck} onCheckedChange={(value) => setCurrentCheck(value === true)} /> Check disruptions</label><label className="flex items-center gap-2 text-sm"><Checkbox checked={privacyMode} onCheckedChange={(value) => setPrivacyMode(value === true)} /> Privacy mode</label></div><Button onClick={runSearch} disabled={mutation.isPending || !text || !location} className="h-12 w-full bg-[#133b2d] text-base hover:bg-[#205943]">{mutation.isPending ? "Building your evidence-backed plan…" : "Find an evidence-backed plan"}</Button>{mutation.error && <p role="alert" className="rounded-xl bg-[#fff2ef] p-3 text-sm text-[#a44d3b]">The workflow could not complete safely. Try mock mode again or check the server configuration.</p>}</div></section>
+      </div>
+      {mutation.isPending && <div className="mx-auto max-w-7xl px-6 pb-8"><div className="rounded-3xl border border-[#d8e1d8] bg-white p-6"><p className="mb-4 font-semibold">Workflow in progress</p><div className="grid gap-3 md:grid-cols-6">{["Sanitize", "Plan", "Maps", "Verify", "Filter", "Rank"].map((step, index) => <div key={step} className="flex items-center gap-2 text-sm text-[#527060]"><span className="grid h-7 w-7 place-items-center rounded-full bg-[#eaf2e9] text-xs font-semibold text-[#2f805c]">{index + 1}</span>{step}</div>)}</div></div></div>}
+      {result && <section className="mx-auto max-w-7xl space-y-6 px-6 pb-16" aria-live="polite"><div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-sm font-semibold uppercase tracking-[.18em] text-[#2f805c]">Your shortlist</p><h2 className="mt-2 text-3xl font-semibold tracking-tight text-[#173c2c]">A plan you can act on</h2></div><p className="text-sm text-[#718078]">{result.recommendations.length} eligible recommendation{result.recommendations.length === 1 ? "" : "s"} · {result.mode} mode</p></div>{result.providerError && <div role="alert" className="rounded-2xl border border-[#f0c5ba] bg-[#fff4f1] p-4 text-sm text-[#9f4938]">Provider status: {result.providerError === "PROVIDER_QUOTA" ? "quota or rate limit reached" : result.providerError === "LIVE_PROVIDER_NOT_CONFIGURED" ? "live provider is not configured" : "live provider request failed"}.</div>}{result.recommendations.map((item: any) => <article key={item.name} className="rounded-3xl border border-[#d8e1d8] bg-white p-6 shadow-[0_14px_45px_rgba(31,61,43,.06)]"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[.18em] text-[#7b8b82]">Rank {item.rank} · {item.category}</p><h3 className="mt-2 text-2xl font-semibold text-[#173c2c]">{item.name}</h3><p className="mt-2 text-sm text-[#607066]">{item.source} · {item.url ? <a className="underline decoration-[#8db39a] underline-offset-2" href={item.url} target="_blank" rel="noreferrer">source</a> : "source link unavailable"}</p></div><div className="text-right"><p className="text-4xl font-semibold text-[#2f805c]">{item.score}</p><p className="text-xs uppercase tracking-wider text-[#7b8b82]">final score</p></div></div><div className="mt-6 grid gap-3 sm:grid-cols-4">{[["Open status", item.open], ["Cost", item.cost], ["Rating", item.rating ?? "Unknown"], ["Distance", item.distance]].map(([label, value]) => <div key={label} className="rounded-2xl bg-[#f5f7f3] p-4"><p className="text-xs text-[#7b8b82]">{label}</p><p className="mt-1 font-semibold text-[#315541]">{String(value)}</p></div>)}</div><div className="mt-6 grid gap-6 lg:grid-cols-[1fr_.75fr]"><div><p className="text-sm font-semibold text-[#315541]">Why it ranked here</p><ul className="mt-3 space-y-2 text-sm text-[#607066]">{item.reasons.map((reason: string) => <li key={reason} className="flex gap-2"><span className="text-[#2f805c]">✓</span>{reason}</li>)}</ul></div><details className="rounded-2xl bg-[#f5f7f3] p-4"><summary className="cursor-pointer text-sm font-semibold text-[#315541]">Score breakdown</summary><div className="mt-3 space-y-2 text-xs text-[#607066]">{Object.entries(item.scoreBreakdown).map(([key, value]) => <div key={key} className="flex justify-between gap-4"><span>{key}</span><span className="font-semibold">{String(value)}/100</span></div>)}</div></details></div><div className="mt-5 border-t border-[#e5ebe5] pt-4 text-sm text-[#8a6540]">{item.warnings.join(" ")}</div></article>)}<div className="grid gap-6 lg:grid-cols-2"><details className="rounded-3xl border border-[#d8e1d8] bg-white p-6"><summary className="cursor-pointer font-semibold text-[#173c2c]">Privacy: what was sent?</summary><p className="mt-4 text-sm leading-6 text-[#607066]">Only sanitized search context was used. Raw request stored: <strong>{String(result.privacy.rawRequestStored)}</strong>. Direct identifiers removed: <strong>{String(result.privacy.removedDirectIdentifiers)}</strong>.</p><pre className="mt-4 overflow-auto rounded-2xl bg-[#f5f7f3] p-4 text-xs text-[#527060]">{result.privacy.sentContext}</pre></details><details className="rounded-3xl border border-[#d8e1d8] bg-white p-6"><summary className="cursor-pointer font-semibold text-[#173c2c]">What was searched?</summary><div className="mt-4 space-y-3">{result.tasks.map((task: any) => <div key={task.engine + task.purpose} className="rounded-2xl bg-[#f5f7f3] p-4"><p className="text-xs font-semibold uppercase tracking-wider text-[#2f805c]">{task.engine} · {task.purpose}</p><p className="mt-1 text-sm text-[#607066]">{task.query}</p></div>)}</div></details></div><div className="rounded-3xl bg-[#133b2d] p-6 text-white"><p className="text-xs font-semibold uppercase tracking-[.18em] text-[#9dd0af]">Action plan</p><h2 className="mt-2 text-2xl font-semibold">{result.actionPlan.recommendation ?? "No eligible result found"}</h2><p className="mt-3 text-sm leading-6 text-[#d6e8db]">Before leaving, confirm: {result.actionPlan.confirmBeforeLeaving.join(", ") || "the details that matter for your request"}. Fallback: {result.actionPlan.fallback}.</p><p className="mt-4 text-xs text-[#b8d2bf]">{result.actionPlan.limitations.join(" ")}</p></div></section>}
+      <footer className="border-t border-[#d8e1d8] px-6 py-6 text-center text-xs text-[#718078]">Information can change. Confirm important details before travelling. · NammaNav AI is an existing hackathon project, not a guarantee of privacy or perfect accuracy.</footer>
+    </main>
   );
 }
