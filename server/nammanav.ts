@@ -24,11 +24,13 @@ const mockResults = (): Candidate[] => [
   { name: "Anna Nagar Public Library", category: "Library", rating: 4.6, reviews: 94, open: "Closed now", cost: "Free", distance: 1.8, confidence: 0.76, source: "Google Maps", url: "https://example.org/library", reasons: ["Strong rating and review signal", "Accessible reading-room information", "Lower cost signal"], warnings: ["Excluded from the open-now shortlist because it is currently closed."], claims: [claim("open status", "Closed now", "Maps", "https://example.org/library", 0.84), claim("accessibility", "Accessible entrance", "Search", "https://example.org/library", 0.76), claim("rating", 4.6, "Maps", "https://example.org/library", 0.86), claim("price", "Free", "Maps", "https://example.org/library", 0.7)] },
 ];
 
-async function liveSearch(engine: "google_maps" | "google" | "google_news", query: string, location: string): Promise<SearchRecord[]> {
+async function liveSearch(engine: "google_maps" | "google" | "google_news", query: string): Promise<SearchRecord[]> {
   const key = process.env.SERPAPI_KEY;
   if (!key) throw new Error("LIVE_PROVIDER_NOT_CONFIGURED");
   const url = new URL("https://serpapi.com/search.json");
-  url.searchParams.set("engine", engine); url.searchParams.set("q", query); url.searchParams.set("location", location); url.searchParams.set("api_key", key);
+  // Broad locality is embedded in the query. SerpApi rejects many neighborhood strings
+  // (for example, "Anna Nagar, Chennai") when sent through its location parameter.
+  url.searchParams.set("engine", engine); url.searchParams.set("q", query); url.searchParams.set("api_key", key);
   const response = await fetch(url, { signal: AbortSignal.timeout(8000) });
   if (response.status === 402 || response.status === 429) throw new Error("PROVIDER_QUOTA");
   if (!response.ok) throw new Error("PROVIDER_ERROR");
@@ -70,12 +72,12 @@ export const recommend = publicProcedure.input(requestSchema).mutation(async ({ 
   let newsResults: SearchRecord[] = [];
   if (live) {
     try {
-      const records = await liveSearch("google_maps", sanitizedText, sanitizedLocation);
+      const records = await liveSearch("google_maps", `${sanitizedText} near ${sanitizedLocation}`);
       resultCount = records.length;
       engineResultCounts.google_maps = records.length;
       candidates = records.map((record, index) => { const name = typeof record.title === "string" ? record.title : `Candidate ${index + 1}`; const url = typeof record.link === "string" && /^https?:\/\//.test(record.link) ? record.link : null; return { name, category: typeof record.type === "string" ? record.type : "Unknown", rating: typeof record.rating === "number" ? record.rating : null, reviews: typeof record.reviews === "number" ? record.reviews : null, open: typeof record.open_state === "string" ? record.open_state : "Unknown", cost: typeof record.price === "string" ? record.price : "Unknown", distance: null, confidence: 0.55, source: "Google Maps via SerpApi", url, reasons: ["Discovered by live Google Maps search", "Candidate facts remain subject to verification", "Source and retrieval metadata are preserved"], warnings: ["Live provider data may be incomplete or change."], claims: [claim("open status", typeof record.open_state === "string" ? record.open_state : "Unknown", "Maps", url, 0.55, "partially verified"), claim("rating", typeof record.rating === "number" ? record.rating : "Unknown", "Maps", url, 0.55, typeof record.rating === "number" ? "verified" : "unknown")] }; });
-      try { verificationResults = await liveSearch("google", `official information and amenities for ${sanitizedText} near ${sanitizedLocation}`, sanitizedLocation); engineResultCounts.google = verificationResults.length; } catch (error) { providerError = error instanceof Error ? error.message : "PROVIDER_ERROR"; }
-      if (input.currentCheck) { try { newsResults = await liveSearch("google_news", `${sanitizedLocation} closure relocation disruption event temporary change`, sanitizedLocation); engineResultCounts.google_news = newsResults.length; } catch (error) { providerError = error instanceof Error ? error.message : "PROVIDER_ERROR"; } }
+      try { verificationResults = await liveSearch("google", `official information and amenities for ${sanitizedText} near ${sanitizedLocation}`); engineResultCounts.google = verificationResults.length; } catch (error) { providerError = error instanceof Error ? error.message : "PROVIDER_ERROR"; }
+      if (input.currentCheck) { try { newsResults = await liveSearch("google_news", `${sanitizedLocation} closure relocation disruption event temporary change`); engineResultCounts.google_news = newsResults.length; } catch (error) { providerError = error instanceof Error ? error.message : "PROVIDER_ERROR"; } }
       if (verificationResults.length) candidates = candidates.map((item) => ({ ...item, confidence: Math.min(0.9, item.confidence + 0.12), reasons: [...item.reasons, "Cross-checked against Google Search results"], claims: [...item.claims, claim("official information", "Search result available", "Search", typeof verificationResults[0]?.link === "string" ? verificationResults[0].link : null, 0.67, "partially verified")] }));
       if (newsResults.length) candidates = candidates.map((item) => ({ ...item, warnings: [...item.warnings, "Current News returned a change signal; review the Change Radar before travelling."], claims: [...item.claims, claim("current changes", "News signal detected", "News", typeof newsResults[0]?.link === "string" ? newsResults[0].link : null, 0.62, "partially verified")] }));
     } catch (error) { providerError = error instanceof Error ? error.message : "PROVIDER_ERROR"; }
