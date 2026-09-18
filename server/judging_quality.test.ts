@@ -16,7 +16,7 @@ describe("hackathon judging quality", () => {
 
   it("shows the dedicated challenge step and bounded mission metrics", async () => {
     const result = await call().nammaNav.recommend({ text: "Find a quiet study place near Anna Nagar with Wi-Fi and charging", broadLocation: "Anna Nagar, Chennai", mustHave: ["Wi-Fi", "charging points"], accessibility: [], openNow: true, currentCheck: false, privacyMode: true });
-    expect(result.replay).toContain("Challenge search");
+    expect(result.replay).toContain("Prove Me Wrong challenge");
     expect(result.mission.requestCount).toBeLessThanOrEqual(5);
     expect(result.mission.claimsCreated).toBeGreaterThanOrEqual(0);
     expect(result).toHaveProperty("initialRecommendation");
