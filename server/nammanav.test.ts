@@ -24,7 +24,7 @@ describe("NammaNav recommendation intelligence", () => {
     expect(result.evidenceGraph.length).toBeGreaterThan(0);
     expect(result.freshnessRadar.length).toBeGreaterThan(0);
     expect(result.replay).toContain("Privacy sanitization");
-    expect(result.mission.engines.map((engine) => engine.engine)).toContain("google_news");
+    expect(result.mission.engines).toHaveLength(0);
     expect(result.privacy.rawRequestStored).toBe(false);
   });
 });
