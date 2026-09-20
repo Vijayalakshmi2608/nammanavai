@@ -38,7 +38,8 @@ async function liveSearch(engine: "google_maps" | "google" | "google_news" | "go
   // Broad locality is embedded in the query. SerpApi rejects many neighborhood strings
   // (for example, "Anna Nagar, Chennai") when sent through its location parameter.
   url.searchParams.set("engine", engine); if (engine === "google_maps_reviews") url.searchParams.set("place_id", query); else url.searchParams.set("q", query); url.searchParams.set("api_key", key);
-  const response = await fetch(url, { signal: AbortSignal.timeout(8000) });
+  const timeoutSeconds = Math.max(2, Math.min(6, Number(process.env.SERPAPI_TIMEOUT_SECONDS ?? 5)));
+  const response = await fetch(url, { signal: AbortSignal.timeout(timeoutSeconds * 1000) });
   if (response.status === 402 || response.status === 429) throw new Error("PROVIDER_QUOTA");
   if (!response.ok) throw new Error("PROVIDER_ERROR");
   const body = (await response.json()) as { local_results?: SearchRecord[]; organic_results?: SearchRecord[]; news_results?: SearchRecord[]; reviews?: SearchRecord[] };
@@ -97,19 +98,25 @@ export const recommend = publicProcedure.input(requestSchema).mutation(async ({ 
           throw error;
         }
       };
-      const [records, initialVerification] = await Promise.all([
+      const initialResults = await Promise.allSettled([
         providerCall("google_maps", "local discovery", `${sanitizedText} near ${sanitizedLocation}`),
         providerCall("google", "official information verification", `official information and amenities for ${sanitizedText} near ${sanitizedLocation}`),
+        providerCall("google", "challenge recommendation", `closures conflicting hours recent complaints price mismatch missing amenities accessibility uncertainty wrong branch for ${sanitizedText} near ${sanitizedLocation}`),
+        input.currentCheck ? providerCall("google_news", "current disruption checking", `${sanitizedLocation} closure relocation disruption event temporary change`) : Promise.resolve([]),
       ]);
-      verificationResults = initialVerification;
+      const records = initialResults[0]?.status === "fulfilled" ? initialResults[0].value : [];
+      verificationResults = initialResults[1]?.status === "fulfilled" ? initialResults[1].value : [];
+      challengeResults = initialResults[2]?.status === "fulfilled" ? initialResults[2].value : [];
+      newsResults = initialResults[3]?.status === "fulfilled" ? initialResults[3].value : [];
+      const initialFailure = initialResults.find((item) => item.status === "rejected");
+      if (initialFailure?.status === "rejected") providerError = initialFailure.reason instanceof Error ? initialFailure.reason.message : "PROVIDER_ERROR";
       resultCount = records.length;
       engineResultCounts.google_maps = records.length;
       candidates = records.map((record, index) => { const name = typeof record.title === "string" ? record.title : `Candidate ${index + 1}`; const url = typeof record.link === "string" && /^https?:\/\//.test(record.link) ? record.link : null; return { placeId: typeof record.place_id === "string" ? record.place_id : undefined, name, category: typeof record.type === "string" ? record.type : "Unknown", rating: typeof record.rating === "number" ? record.rating : null, reviews: typeof record.reviews === "number" ? record.reviews : null, open: typeof record.open_state === "string" ? record.open_state : "Unknown", cost: typeof record.price === "string" ? record.price : "Unknown", distance: null, confidence: 0.55, source: "Google Maps via SerpApi", url, reasons: ["Discovered by live Google Maps search", "Candidate facts remain subject to verification", "Source and retrieval metadata are preserved"], warnings: ["Live provider data may be incomplete or change."], claims: [claim("open status", typeof record.open_state === "string" ? record.open_state : "Unknown", "Maps", url, 0.55, "partially verified"), claim("rating", typeof record.rating === "number" ? record.rating : "Unknown", "Maps", url, 0.55, typeof record.rating === "number" ? "verified" : "unknown"), claim("review count", typeof record.reviews === "number" ? record.reviews : "Unknown", "Maps", url, 0.55, typeof record.reviews === "number" ? "verified" : "unknown"), claim("thumbnail", typeof record.thumbnail === "string" ? record.thumbnail : "Unavailable", "Maps", url, 0.45, typeof record.thumbnail === "string" ? "verified" : "unknown")] }; });
       engineResultCounts.google = verificationResults.length;
-      try { challengeResults = await providerCall("google", "challenge recommendation", `closures conflicting hours recent complaints price mismatch missing amenities accessibility uncertainty wrong branch for ${sanitizedText} near ${sanitizedLocation}`); } catch (error) { providerError = error instanceof Error ? error.message : "PROVIDER_ERROR"; }
       const reviewPlaceId = candidates.find((candidate) => candidate.placeId)?.placeId;
       if (reviewPlaceId) { try { reviewResults = await providerCall("google_maps_reviews", "Maps Reviews challenge evidence", reviewPlaceId); } catch (error) { providerError = error instanceof Error ? error.message : "PROVIDER_ERROR"; } }
-      if (input.currentCheck) { try { newsResults = await providerCall("google_news", "current disruption checking", `${sanitizedLocation} closure relocation disruption event temporary change`); engineResultCounts.google_news = newsResults.length; } catch (error) { providerError = error instanceof Error ? error.message : "PROVIDER_ERROR"; } }
+      if (input.currentCheck) engineResultCounts.google_news = newsResults.length;
       if (verificationResults.length) candidates = candidates.map((item) => ({ ...item, confidence: Math.min(0.9, item.confidence + 0.12), reasons: [...item.reasons, "Cross-checked against Google Search results"], claims: [...item.claims, claim("official information", "Search result available", "Search", typeof verificationResults[0]?.link === "string" ? verificationResults[0].link : null, 0.67, evidenceAgeHours(verificationResults[0] ?? {}) > 24 ? "stale" : "partially verified", { snippet: safeSnippet(verificationResults[0] ?? {}), engine: "google", ageHours: evidenceAgeHours(verificationResults[0] ?? {}), supports: Boolean(safeSnippet(verificationResults[0] ?? {})) })] }));
       const conflictRecord = verificationResults.find((record) => /closed|temporarily closed|price mismatch|not available|different branch/i.test(`${record.title ?? ""} ${record.snippet ?? ""} ${record.description ?? ""}`));
       if (conflictRecord) candidates = candidates.map((item) => ({ ...item, warnings: [...item.warnings, "Verification returned a conflicting signal; this claim is not silently resolved."], claims: [...item.claims, claim("conflicting verification", "Provider signals disagree", "Search", typeof conflictRecord.link === "string" ? conflictRecord.link : null, 0.65, "conflicting", { snippet: safeSnippet(conflictRecord), engine: "google", supports: false })] }));
