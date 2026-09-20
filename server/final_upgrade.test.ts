@@ -31,6 +31,17 @@ describe("final NammaNav AI decision-intelligence upgrade", () => {
     expect(result.stressTests.length).toBeGreaterThanOrEqual(5);
     expect(result.temporalTruth.length).toBeGreaterThan(0);
     expect(result.challengeSummary).toBe("No contradiction found in the searched evidence.");
+    expect(result.execution).toMatchObject({ isMock: true, rawSerpApiResponse: {} });
+    expect(result.auditStrictness).toBe(0.5);
+    expect(result.evidenceGraph.some((edge: any) => edge.claim === "review count")).toBe(true);
+  }, 15000);
+
+  it("changes ranking penalty when Audit Strictness changes", async () => {
+    const base = await call().nammaNav.recommend({ text: "Find a quiet study cafe near Anna Nagar", broadLocation: "Anna Nagar, Chennai", mustHave: ["Wi-Fi"], accessibility: [], openNow: true, currentCheck: false, privacyMode: true, auditStrictness: 0 });
+    const strict = await call().nammaNav.recommend({ text: "Find a quiet study cafe near Anna Nagar", broadLocation: "Anna Nagar, Chennai", mustHave: ["Wi-Fi"], accessibility: [], openNow: true, currentCheck: false, privacyMode: true, auditStrictness: 1 });
+    expect(strict.auditStrictness).toBe(1);
+    expect(strict.recommendations[0].score).toBeLessThanOrEqual(base.recommendations[0].score);
+    expect(strict.recommendations[0].scoreBreakdown.auditStrictness).toBe(1);
   }, 15000);
 
   it("keeps conflict resolution explicit and dossier-safe", async () => {
