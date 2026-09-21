@@ -34,6 +34,9 @@ describe("final NammaNav AI decision-intelligence upgrade", () => {
     expect(result.execution).toMatchObject({ isMock: true, rawSerpApiResponse: {} });
     expect(result.auditStrictness).toBe(0.5);
     expect(result.evidenceGraph.some((edge: any) => edge.claim === "review count")).toBe(true);
+    expect(result.decisionMutationLog.map((entry: any) => entry.stage)).toEqual(["Initial score", "Evidence discovered", "Score impact", "Challenge result", "Final score", "Decision impact"]);
+    expect(result.dossier.receiptId).toMatch(/^nammanav-/);
+    expect(result.evidenceGraph.every((edge: any) => typeof edge.decisionImpact === "string")).toBe(true);
   }, 15000);
 
   it("changes ranking penalty when Audit Strictness changes", async () => {
@@ -65,6 +68,7 @@ describe("final NammaNav AI decision-intelligence upgrade", () => {
     expect(result.conflicts.some((item: any) => item.status === "CONFLICTING / UNRESOLVED")).toBe(true);
     expect(result.temporalTruth.some((item: any) => item.classification === "STALE")).toBe(true);
     expect(result.challengeSummary).not.toBe("No contradiction found in the searched evidence.");
+    expect(result.decisionMutationLog.some((entry: any) => entry.stage === "Score impact" && entry.detail.includes("challenge penalty"))).toBe(true);
     expect(JSON.stringify(result.dossier)).not.toContain("server-only-test-key");
   }, 15000);
 

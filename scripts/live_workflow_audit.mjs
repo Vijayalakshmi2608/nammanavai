@@ -31,6 +31,7 @@ const telemetry = Array.isArray(result?.providerTelemetry) ? result.providerTele
 const recommendations = Array.isArray(result?.recommendations) ? result.recommendations : [];
 const evidence = Array.isArray(result?.evidenceGraph) ? result.evidenceGraph : [];
 const freshness = Array.isArray(result?.freshnessRadar) ? result.freshnessRadar : [];
+const mutationLog = Array.isArray(result?.decisionMutationLog) ? result.decisionMutationLog : [];
 const raw = result?.execution?.rawSerpApiResponse ?? {};
 const candidateUrls = recommendations.flatMap((candidate) => [candidate.url, ...(candidate.claims ?? []).map((claim) => claim.url)]).filter(Boolean);
 const hasMockUrl = candidateUrls.some((url) => String(url).includes("example.org"));
@@ -53,6 +54,8 @@ const checks = {
   challengeMapped: Boolean(result?.challengeSummary) && (Array.isArray(result?.challengeResults) || telemetry.some((item) => item.purpose?.includes("challenge"))),
   rankingMapped: recommendations.every((candidate) => typeof candidate.score === "number" && typeof candidate.rank === "number"),
   finalVerdictMapped: typeof result?.verdict === "string" && typeof result?.actionPlan?.recommendation === "string",
+  decisionMutationLogComplete: ["Initial score", "Evidence discovered", "Score impact", "Challenge result", "Final score", "Decision impact"].every((stage) => mutationLog.some((entry) => entry.stage === stage)),
+  evidenceDecisionCausality: evidence.length > 0 && evidence.every((edge) => typeof edge.decisionImpact === "string" && typeof edge.scoreImpact === "number"),
   noMockCandidates: !hasMockUrl,
 };
 const failed = Object.entries(checks).filter(([, value]) => !value).map(([name]) => name);
@@ -68,6 +71,7 @@ console.log(JSON.stringify({
   telemetry: telemetry.map((item) => ({ engine: item.engine, purpose: item.purpose, status: item.status, latencyMs: item.latencyMs, resultCount: item.resultCount, error: item.error })),
   candidateCount: recommendations.length,
   evidenceCount: evidence.length,
+  mutationLog,
   freshnessCount: freshness.length,
   rawEngines: Object.keys(raw),
   checks,
