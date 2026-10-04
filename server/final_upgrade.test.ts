@@ -27,6 +27,16 @@ describe("final NammaNav AI decision-intelligence upgrade", () => {
     });
 
     expect(result.attackSurface.length).toBe(8);
+    expect(result.attackSurface.map((risk: any) => risk.risk)).toEqual([
+      "Closure risk",
+      "Price risk",
+      "Freshness risk",
+      "Missing-feature risk",
+      "Source disagreement",
+      "Disruption risk",
+      "Crowding/noise risk",
+      "Outdated info risk",
+    ]);
     expect(result.attackSurface.every((risk: any) => ["LOW", "MEDIUM", "HIGH", "UNKNOWN"].includes(risk.level))).toBe(true);
     expect(result.stressTests.length).toBeGreaterThanOrEqual(5);
     expect(result.temporalTruth.length).toBeGreaterThan(0);
@@ -45,6 +55,8 @@ describe("final NammaNav AI decision-intelligence upgrade", () => {
     expect(strict.auditStrictness).toBe(1);
     expect(strict.recommendations[0].score).toBeLessThanOrEqual(base.recommendations[0].score);
     expect(strict.recommendations[0].scoreBreakdown.auditStrictness).toBe(1);
+    expect(strict.recommendations[0].scoreBreakdown.formula).toContain("Verified Claims × 5");
+    expect(strict.recommendations[0].scoreBreakdown.formula).toContain("Source Conflicts × 25 × Strictness");
   }, 15000);
 
   it("keeps conflict resolution explicit and dossier-safe", async () => {

@@ -69,9 +69,9 @@ SerpApi is materially essential rather than cosmetic. Google Maps supplies local
 | **Multi-Engine SerpApi Evidence Pipeline** | Uses Maps, Search, Reviews, and News for distinct purposes. | Makes live local evidence part of the decision, not a decorative integration. |
 | **Claim-Level Evidence Inspector** | Expands each recommendation claim into value, status, source, engine, URL, timestamp, freshness, confidence, and polarity. | Makes every important assertion inspectable. |
 | **Prove Me Wrong** | Runs targeted searches for closures, conflicting hours, price mismatch, missing amenities, complaints, and disruptions. | The system actively searches for reasons its own answer could be wrong. |
-| **Audit Strictness Engine** | Low `0.0`, Medium `0.5`, or High `1.0` penalty for unverified claims. | Lets users choose how conservative the ranking should be. |
+| **Audit Strictness Engine** | Low `0.0`, Medium `0.5`, or High `1.0` scoring using `(Base Relevance × 0.6) + (Verified Claims × 5) − (Unverified Claims × 12 × Strictness) − (Source Conflicts × 25 × Strictness)`. | Lets users choose how conservative the ranking should be with an inspectable formula. |
 | **Temporal Truth Engine** | Classifies evidence as CURRENT, AGING, STALE, or CONFLICTING. | Prevents old information from masquerading as current truth. |
-| **Decision Attack Surface** | Ranks closure, price, hours, feature, freshness, disagreement, suitability, and disruption risks. | Prioritizes what should be checked before acting. |
+| **Decision Attack Surface** | Ranks closure, price, freshness, missing features, source disagreement, disruption, crowding/noise, and outdated-information risks. | Prioritizes the eight explicit failure modes that could invalidate the decision. |
 | **Decision Stress Test** | Compares the recommendation under budget, distance, amenity, accessibility, and opening variations. | Makes trade-offs visible rather than hiding them. |
 | **Local Privacy Transformation** | Generalizes locations and blocks email, phone, exact-address, and secret leakage. | Minimizes unnecessary data sent to providers and exports. |
 | **Decision Dossier** | Exports JSON or Markdown containing the contract, privacy transformation, tasks, evidence, conflicts, scores, sources, uncertainty, and limitations. | Produces a shareable, auditable artifact for a decision. |
@@ -143,6 +143,8 @@ streamlit run frontend/app.py
 3. **Inspect evidence.** Expand a claim in the Evidence Inspector. Show the source type, SerpApi engine, source URL, retrieved time, freshness, confidence, and whether it supports or challenges the decision.
 4. **Attack the answer.** Click **Prove Me Wrong**. Show challenge telemetry, conflict handling, Temporal Truth, the Decision Attack Surface, and initial-versus-final score changes. If no contradiction is found, show the explicit “No contradiction found in the searched evidence” message.
 5. **Adjust and export.** Move Audit Strictness from Medium to High, rerun, open the Raw SerpApi Payload section, review the Stress Test Decision panel, and export the Decision Dossier.
+
+Use [`docs/decision-dossier-template.md`](docs/decision-dossier-template.md) for the standardized evidence receipt structure and [`docs/hackathon-submission-checklist.md`](docs/hackathon-submission-checklist.md) for the final judge demo checklist.
 
 ---
 
